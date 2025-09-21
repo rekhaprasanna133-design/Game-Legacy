@@ -8,7 +8,6 @@ WIDTH, HEIGHT = 800, 600
 ATTACK_DAMAGE = 25  # Normal attack damage
 SKILL_DAMAGE = 75  # Skill damage
 
-
 # Define character classes
 CLASSES = {
     "Knight": {"maxHp": 660, "speed": 1.2, "color": (37, 99, 235), "special_skill": "Divine Shield", "shield_duration": 2.0},
@@ -25,23 +24,15 @@ PLAYER1_SKILL_KEY = pygame.K_f
 PLAYER2_SKILL_KEY = pygame.K_h
 UNIVERSAL_COOLDOWN = 10.0
 
-# Image and Sound asset cache
+# Sound asset cache
 ASSETS = {}
-
-def tint_image(surface, color):
-    """Tints a surface with a given color."""
-    tint_surf = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-    tint_surf.fill(color)
-    surface_copy = surface.copy()
-    surface_copy.blit(tint_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-    return surface_copy
 
 def load_assets():
     """Loads and caches all necessary game assets."""
     global ASSETS
     
     try:
-        pygame.mixer.music.load('bg_music.ogg')
+        pygame.mixer.music.load('bg_music.mp3')
         ASSETS['hit_sound'] = pygame.mixer.Sound('hit_sound.wav')
         ASSETS['skill_sound'] = pygame.mixer.Sound('skill_sound.wav')
         pygame.mixer.music.play(-1)
@@ -57,29 +48,6 @@ def load_assets():
         print("Warning: Could not load arena_background.png. Using a solid color background.")
         ASSETS['background'] = None
     
-    character_assets = {
-        "Knight": 'knight.png',
-        "Assassin": 'assassin.png',
-        "Mage": 'mage.png',
-        "Healer": 'healer.png',
-        "Summoner": 'summoner.png',
-        "Warrior": 'warrior.png',
-        "Beast": 'beast.png',
-    }
-    
-    for role, filename in character_assets.items():
-        try:
-            image = pygame.image.load(filename).convert_alpha()
-            scaled_image = pygame.transform.scale(image, (96, 96))
-            ASSETS[role] = scaled_image
-            ASSETS[f"{role}_P1"] = tint_image(scaled_image, (0, 0, 255, 100))
-            ASSETS[f"{role}_P2"] = tint_image(scaled_image, (255, 0, 0, 100))
-        except pygame.error:
-            print(f"Warning: Could not load {filename}. Using a default circle.")
-            ASSETS[role] = None
-            ASSETS[f"{role}_P1"] = None
-            ASSETS[f"{role}_P2"] = None
-
 def create_entity(class_name, team, x, y, is_player=False, player_id=""):
     c = CLASSES.get(class_name, CLASSES["Knight"])
     entity = {
@@ -104,12 +72,10 @@ def create_entity(class_name, team, x, y, is_player=False, player_id=""):
         "charge_direction_y": 0,
         "is_invulnerable": False,
         "invulnerable_timer": 0,
-        "image": ASSETS.get(f"{class_name}_P1" if team == "A" else f"{class_name}_P2", None)
     }
     if class_name == "Beast":
         entity["lifespan_timer"] = c["lifespan"]
         entity["attackCooldown"] = 0
-        entity["image"] = ASSETS.get("Beast", None)
     return entity
 
 def dist(a, b):
@@ -169,7 +135,7 @@ def main_menu(screen, font):
         pygame.draw.rect(screen, (0, 200, 0), play_button)
         play_text = font.render("PLAY", True, (255, 255, 255))
         screen.blit(play_text, (play_button.x + (play_button.width - play_text.get_width()) // 2,
-                                 play_button.y + (play_button.height - play_text.get_height()) // 2))
+                                play_button.y + (play_button.height - play_text.get_height()) // 2))
 
         pygame.display.flip()
 
@@ -268,6 +234,7 @@ def game_loop(screen, font, player1_id, player1_role, player2_id, player2_role):
                 if event.key == pygame.K_ESCAPE:
                     show_controls_menu()
                 
+                # Player 1 skill logic
                 if event.key == PLAYER1_SKILL_KEY and player1["skillCooldown"] <= 0:
                     if ASSETS['skill_sound']: ASSETS['skill_sound'].play()
                     if player1["className"] == "Mage":
@@ -278,12 +245,12 @@ def game_loop(screen, font, player1_id, player1_role, player2_id, player2_role):
                             dy /= dist_val
                         projectiles.append({
                             "x": player1["x"], "y": player1["y"], "dx": dx * 300, "dy": dy * 300, "radius": 8,
-                            "team": player1["team"], "damage": 40,
+                            "team": player1["team"], "damage": SKILL_DAMAGE,
                         })
                     elif player1["className"] == "Healer":
                         for ally in entities:
                             if ally["team"] == player1["team"] and ally["hp"] > 0:
-                                ally["hp"] = min(ally["maxHp"], ally["hp"] + 30)
+                                ally["hp"] = min(ally["maxHp"], ally["hp"] + SKILL_DAMAGE)
                     elif player1["className"] == "Summoner":
                         entities.append(create_entity("Beast", player1["team"], player1["x"] + 40, player1["y"], False))
                     elif player1["className"] == "Assassin":
@@ -303,6 +270,7 @@ def game_loop(screen, font, player1_id, player1_role, player2_id, player2_role):
                     
                     player1["skillCooldown"] = UNIVERSAL_COOLDOWN
 
+                # Player 2 skill logic
                 if event.key == PLAYER2_SKILL_KEY and player2["skillCooldown"] <= 0:
                     if ASSETS['skill_sound']: ASSETS['skill_sound'].play()
                     if player2["className"] == "Mage":
@@ -313,12 +281,12 @@ def game_loop(screen, font, player1_id, player1_role, player2_id, player2_role):
                             dy /= dist_val
                         projectiles.append({
                             "x": player2["x"], "y": player2["y"], "dx": dx * 300, "dy": dy * 300, "radius": 8,
-                            "team": player2["team"], "damage": 40,
+                            "team": player2["team"], "damage": SKILL_DAMAGE,
                         })
                     elif player2["className"] == "Healer":
                         for ally in entities:
                             if ally["team"] == player2["team"] and ally["hp"] > 0:
-                                ally["hp"] = min(ally["maxHp"], ally["hp"] + 30)
+                                ally["hp"] = min(ally["maxHp"], ally["hp"] + SKILL_DAMAGE)
                     elif player2["className"] == "Summoner":
                         entities.append(create_entity("Beast", player2["team"], player2["x"] - 40, player2["y"], False))
                     elif player2["className"] == "Assassin":
@@ -339,13 +307,14 @@ def game_loop(screen, font, player1_id, player1_role, player2_id, player2_role):
                     player2["skillCooldown"] = UNIVERSAL_COOLDOWN
 
         keys = pygame.key.get_pressed()
+        
+        # Player 1 movement and basic attack
         if not player1.get("is_charging", False):
             if keys[pygame.K_w]: player1["y"] -= player1["speed"] * 120 * dt
             if keys[pygame.K_s]: player1["y"] += player1["speed"] * 120 * dt
             if keys[pygame.K_a]: player1["x"] -= player1["speed"] * 120 * dt
             if keys[pygame.K_d]: player1["x"] += player1["speed"] * 120 * dt
         
-        # Player 1 basic attack logic
         if keys[pygame.K_e] and player1["attackCooldown"] <= 0:
             target = player2
             dx, dy = target["x"] - player1["x"], target["y"] - player1["y"]
@@ -355,17 +324,17 @@ def game_loop(screen, font, player1_id, player1_role, player2_id, player2_role):
                 dy /= dist_val
             projectiles.append({
                 "x": player1["x"], "y": player1["y"], "dx": dx * 300, "dy": dy * 300,
-                "radius": 5, "team": player1["team"], "damage": 25,
+                "radius": 5, "team": player1["team"], "damage": ATTACK_DAMAGE,
             })
             player1["attackCooldown"] = 0.6
         
+        # Player 2 movement and basic attack
         if not player2.get("is_charging", False):
             if keys[pygame.K_UP]: player2["y"] -= player2["speed"] * 120 * dt
             if keys[pygame.K_DOWN]: player2["y"] += player2["speed"] * 120 * dt
             if keys[pygame.K_LEFT]: player2["x"] -= player2["speed"] * 120 * dt
             if keys[pygame.K_RIGHT]: player2["x"] += player2["speed"] * 120 * dt
         
-        # Player 2 basic attack logic
         if keys[pygame.K_RSHIFT] and player2["attackCooldown"] <= 0:
             target = player1
             dx, dy = target["x"] - player2["x"], target["y"] - player2["y"]
@@ -375,25 +344,28 @@ def game_loop(screen, font, player1_id, player1_role, player2_id, player2_role):
                 dy /= dist_val
             projectiles.append({
                 "x": player2["x"], "y": player2["y"], "dx": dx * 300, "dy": dy * 300,
-                "radius": 5, "team": player2["team"], "damage": 25,
+                "radius": 5, "team": player2["team"], "damage": ATTACK_DAMAGE,
             })
             player2["attackCooldown"] = 0.6
         
+        # Update entity states
         for p in [player1, player2]:
+            # Warrior charge logic
             if p.get("is_charging", False):
                 p["x"] += p["charge_direction_x"] * CLASSES["Warrior"]["charge_speed"] * dt
                 p["y"] += p["charge_direction_y"] * CLASSES["Warrior"]["charge_speed"] * dt
-                p["charge_timer"] -= dt
                 
+                # Collision check during charge
                 enemy = player1 if p["team"] == "B" else player2
                 if dist(p, enemy) < p["radius"] + enemy["radius"] and not enemy.get("is_invulnerable", False):
                     enemy["hp"] -= CLASSES["Warrior"]["charge_damage"]
                     if ASSETS['hit_sound']: ASSETS['hit_sound'].play()
-                    p["is_charging"] = False
-
+                
+                p["charge_timer"] -= dt
                 if p["charge_timer"] <= 0:
                     p["is_charging"] = False
 
+        # Update summoned entities
         for e in entities[:]:
             if e["className"] == "Beast":
                 e["lifespan_timer"] -= dt
@@ -403,12 +375,14 @@ def game_loop(screen, font, player1_id, player1_role, player2_id, player2_role):
 
                 enemy = player1 if e["team"] == "B" else player2
                 if enemy in entities:
+                    # Chase the enemy
                     dx, dy = enemy["x"] - e["x"], enemy["y"] - e["y"]
                     dist_val = dist(e, enemy)
                     if dist_val > 0:
                         e["x"] += (dx / dist_val) * e["speed"] * 120 * dt
                         e["y"] += (dy / dist_val) * e["speed"] * 120 * dt
                     
+                    # Attack when close
                     if "attackCooldown" in e and e["attackCooldown"] <= 0 and dist_val < 300:
                         ndx, ndy = dx, dy
                         if dist_val > 0:
@@ -420,23 +394,19 @@ def game_loop(screen, font, player1_id, player1_role, player2_id, player2_role):
                         })
                         e["attackCooldown"] = CLASSES["Beast"]["attackCooldown"]
         
-        for p in [player1, player2]:
-            if p["attackCooldown"] > 0: p["attackCooldown"] -= dt
-            if p["skillCooldown"] > 0: p["skillCooldown"] -= dt
-            
-            if p.get("is_stealthed", False):
-                p["stealth_timer"] -= dt
-                if p["stealth_timer"] <= 0:
-                    p["is_stealthed"] = False
-            
-            if p.get("is_invulnerable", False):
-                p["invulnerable_timer"] -= dt
-                if p["invulnerable_timer"] <= 0:
-                    p["is_invulnerable"] = False
-        
+        # Update cooldowns and timers for all entities
         for e in entities:
-            if "attackCooldown" in e and e["attackCooldown"] > 0:
-                e["attackCooldown"] -= dt
+            if "attackCooldown" in e and e["attackCooldown"] > 0: e["attackCooldown"] -= dt
+            if "skillCooldown" in e and e["skillCooldown"] > 0: e["skillCooldown"] -= dt
+            if e.get("is_stealthed", False):
+                e["stealth_timer"] -= dt
+                if e["stealth_timer"] <= 0:
+                    e["is_stealthed"] = False
+            if e.get("is_invulnerable", False):
+                e["invulnerable_timer"] -= dt
+                if e["invulnerable_timer"] <= 0:
+                    e["is_invulnerable"] = False
+
 
         # Update and check for projectile hits
         for proj in projectiles[:]:
@@ -448,10 +418,11 @@ def game_loop(screen, font, player1_id, player1_role, player2_id, player2_role):
                 continue
             
             for e in entities:
-                if e["team"] != proj["team"] and e["hp"] > 0:
-                    is_immune = (e.get("is_stealthed", False) and e["className"] == "Assassin") or e.get("is_invulnerable", False)
-                    
-                    if not is_immune and dist(proj, e) < e["radius"]:
+                # Check for immunity before applying damage
+                is_immune = e.get("is_invulnerable", False) or e.get("is_stealthed", False)
+                
+                if e["team"] != proj["team"] and e["hp"] > 0 and not is_immune:
+                    if dist(proj, e) < e["radius"]:
                         e["hp"] -= proj["damage"]
                         if ASSETS['hit_sound']: ASSETS['hit_sound'].play()
                         if e["hp"] <= 0:
@@ -460,6 +431,7 @@ def game_loop(screen, font, player1_id, player1_role, player2_id, player2_role):
                             projectiles.remove(proj)
                         break
 
+        # Win condition check
         if player1["hp"] <= 0:
             winner = player2["id"]
             running = False
@@ -467,6 +439,7 @@ def game_loop(screen, font, player1_id, player1_role, player2_id, player2_role):
             winner = player1["id"]
             running = False
 
+        # Drawing
         if ASSETS['background']:
             screen.blit(ASSETS['background'], (0, 0))
         else:
@@ -478,22 +451,17 @@ def game_loop(screen, font, player1_id, player1_role, player2_id, player2_role):
             if e["hp"] <= 0:
                 continue
 
+            # Skip drawing if the Assassin is stealthed
+            if e["className"] == "Assassin" and e.get("is_stealthed", False):
+                continue
+
             draw_x = int(e["x"])
             draw_y = int(e["y"])
 
             if e["isPlayer"]:
                 draw_y += idle_offset
 
-            if e["is_stealthed"] and e["className"] == "Assassin":
-                stealth_surface = pygame.Surface((e["radius"]*2, e["radius"]*2), pygame.SRCALPHA)
-                pygame.draw.circle(stealth_surface, (124, 58, 237, 100), (e["radius"], e["radius"]), e["radius"])
-                screen.blit(stealth_surface, (int(e["x"] - e["radius"]), int(e["y"] - e["radius"])))
-            else:
-                if e["image"]:
-                    image_rect = e["image"].get_rect(center=(draw_x, draw_y))
-                    screen.blit(e["image"], image_rect)
-                else:
-                    pygame.draw.circle(screen, e["color"], (draw_x, draw_y), e["radius"])
+            pygame.draw.circle(screen, e["color"], (draw_x, draw_y), e["radius"])
             
             hp_ratio = e["hp"] / e["maxHp"]
             hp_bar_width = 40
